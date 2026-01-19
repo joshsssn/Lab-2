@@ -44,6 +44,16 @@ class Hello(BaseModel):
 
 app = FastAPI()
 
+# CORS middleware to allow GUI requests
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for development
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Authentication setup
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
@@ -66,13 +76,21 @@ dbManager = DBManager(configManager)
 logger.info("DB manager init succesful")
 
 
+@app.get("/me", response_model=UserResponse)
+async def get_me(current_user: User = Depends(get_current_user)):
+    """
+    Returns the authenticated user's profile information.
+    """
+    return current_user
+
+
 @app.get("/")
 async def show_welcome_page():
     """
     Returns a simple welcome message for the API.
     """
     message = {
-        "Message": "Welcome to your own API ! It is kind of empty don't you think ? Why don't you try adding an /health !"
+        "Message": "Morocco deserved to win the Africa Cup of Nations. They will be champions! Btw, nice job finding this Easter egg!"
     }
     return message
 

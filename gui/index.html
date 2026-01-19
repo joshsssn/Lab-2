@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NotEbay</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="logo" onclick="location.reload()"><span class="red">N</span><span class="blue">o</span><span
+                    class="yellow">t</span><span class="green">E</span><span class="red">b</span><span
+                    class="blue">a</span><span class="yellow">y</span></h1>
+            <div class="user-info" id="userInfo">
+                <span id="welcomeText">Not logged in</span>
+                <button id="logoutBtn" class="btn btn-secondary" style="display: none;">Logout</button>
+            </div>
+        </header>
+
+        <!-- Auth Section -->
+        <section id="authSection" class="section auth-section">
+            <div class="auth-container">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" data-tab="login">Login</button>
+                    <button class="auth-tab" data-tab="register">Register</button>
+                </div>
+
+                <!-- Login Form -->
+                <form id="loginForm" class="auth-form">
+                    <h2>Welcome Back</h2>
+                    <div class="form-group">
+                        <label for="loginUsername">Username</label>
+                        <input type="text" id="loginUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                    <p id="loginError" class="error-msg"></p>
+                </form>
+
+                <!-- Register Form -->
+                <form id="registerForm" class="auth-form" style="display: none;">
+                    <h2>Create Account</h2>
+                    <div class="form-group">
+                        <label for="regFullName">Full Name</label>
+                        <input type="text" id="regFullName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regUsername">Username</label>
+                        <input type="text" id="regUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regEmail">Email</label>
+                        <input type="email" id="regEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regPassword">Password</label>
+                        <input type="password" id="regPassword" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Register</button>
+                    <p id="registerError" class="error-msg"></p>
+                    <p id="registerSuccess" class="success-msg"></p>
+                </form>
+            </div>
+        </section>
+
+        <!-- Main Content (hidden until logged in) -->
+        <main id="mainContent" class="main-content" style="display: none;">
+            <!-- Navigation Tabs -->
+            <div class="main-tabs">
+                <button class="main-tab active" data-view="items">🛍️ Items</button>
+                <button class="main-tab" data-view="users">👥 Users</button>
+            </div>
+
+            <!-- Items View -->
+            <div id="itemsView">
+                <!-- Filters -->
+                <section class="filters">
+                    <h2>Browse Items</h2>
+                    <div class="filter-row">
+                        <input type="text" id="filterKeyword" placeholder="Search keyword...">
+                        <input type="number" id="filterMinPrice" placeholder="Min price">
+                        <input type="number" id="filterMaxPrice" placeholder="Max price">
+                        <button id="applyFilters" class="btn btn-secondary">Search</button>
+                        <button id="clearFilters" class="btn btn-secondary">Clear</button>
+                    </div>
+                </section>
+
+                <!-- Items Grid -->
+                <section class="items-section">
+                    <div id="itemsGrid" class="items-grid">
+                        <!-- Items loaded dynamically -->
+                    </div>
+                </section>
+
+                <!-- Create Item Section -->
+                <section class="create-item-section">
+                    <h2>Sell an Item</h2>
+                    <form id="createItemForm" class="create-item-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="itemName">Item Name</label>
+                                <input type="text" id="itemName" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="itemPrice">Price ($)</label>
+                                <input type="number" id="itemPrice" step="0.01" min="0" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="itemDescription">Description</label>
+                            <textarea id="itemDescription" rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">List Item</button>
+                        <p id="createItemError" class="error-msg"></p>
+                        <p id="createItemSuccess" class="success-msg"></p>
+                    </form>
+                </section>
+            </div>
+
+            <!-- Users View -->
+            <div id="usersView" style="display: none;">
+                <section class="filters">
+                    <h2>Browse Users</h2>
+                </section>
+                <div id="usersGrid" class="users-grid">
+                    <!-- Users loaded dynamically -->
+                </div>
+            </div>
+        </main>
+
+        <!-- Item Modal -->
+        <div id="itemModal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn">&times;</span>
+                <h2 id="modalItemName"></h2>
+                <p id="modalItemDescription" class="modal-description"></p>
+                <p class="modal-price">Price: $<span id="modalItemPrice"></span></p>
+                <p class="modal-seller">Seller: <span id="modalSellerName" class="seller-link"></span></p>
+                <div id="modalActions">
+                    <button id="buyBtn" class="btn btn-primary">Buy Now</button>
+                </div>
+                <p id="modalError" class="error-msg"></p>
+                <p id="modalSuccess" class="success-msg"></p>
+
+                <!-- Rating Section (shown after purchase) -->
+                <div id="ratingSection" style="display: none;">
+                    <h3>Rate the Seller</h3>
+                    <div class="rating-stars">
+                        <span class="star" data-value="1">★</span>
+                        <span class="star" data-value="2">★</span>
+                        <span class="star" data-value="3">★</span>
+                        <span class="star" data-value="4">★</span>
+                        <span class="star" data-value="5">★</span>
+                    </div>
+                    <button id="submitRating" class="btn btn-secondary">Submit Rating</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Modal (shows seller's items) -->
+        <div id="userModal" class="modal">
+            <div class="modal-content modal-wide">
+                <span class="close-btn" id="closeUserModal">&times;</span>
+                <h2 id="userModalName"></h2>
+                <p class="modal-info">⭐ Rating: <span id="userModalRating"></span> | 📧 <span
+                        id="userModalEmail"></span></p>
+                <h3>Items for Sale</h3>
+                <div id="userItemsGrid" class="items-grid">
+                    <!-- User's items loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

@@ -2,5 +2,5 @@ sqlalchemy
 fastapi[standard]
 pandas
 python-jose[cryptography]
-passlib
+passlib[bcrypt]
 python-multipart

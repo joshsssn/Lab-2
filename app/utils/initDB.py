@@ -21,6 +21,24 @@ def dropAllTables(engine):
 import random
 
 def populateUsers(session):
+    # Add default accounts first
+    admin_user = User(
+        full_name="Admin User",
+        username="admin",
+        email="admin@marketplace.com",
+        password_hash=get_password_hash("admin"),
+        rating=Decimal("5.0")
+    )
+    test_user = User(
+        full_name="Test User",
+        username="test",
+        email="test@marketplace.com",
+        password_hash=get_password_hash("test"),
+        rating=Decimal("4.0")
+    )
+    session.add_all([admin_user, test_user])
+    session.commit()
+    
     first_names = ["Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Hank", "Ivy", "Jack", 
                    "Liam", "Mia", "Noah", "Olivia", "Peter", "Quinn", "Rose", "Sam", "Tara", "Ursula"]
     last_names = ["Smith", "Jones", "Brown", "Wilson", "Miller", "Thomas", "Lee", "Green", "White", "Black", 
