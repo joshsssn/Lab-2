@@ -109,6 +109,11 @@ uv run fastapi dev
 
 ## GUI Features
 
+### Admin Capabilities (Admin Only)
+- **User Controls**: Detailed user lookup, modification, and deletion.
+- **Global Item Control**: Ability to change item availability or details.
+- **API Playground**: Raw API execution with live JSON feedback.
+
 ### Item Filtering
 - **Keyword Search**: Search in item names and descriptions
 - **Price Range**: Filter by minimum and maximum price

@@ -153,10 +153,11 @@ async def update_user(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Updates the authenticated user's profile.
-    Only the user themselves can update their information.
+    Updates a user's profile.
+    Users can update their own profile, admin can update any user.
     """
-    if user_id != current_user.id:
+    # Allow admin to update any user
+    if user_id != current_user.id and current_user.username != 'admin':
         raise HTTPException(status_code=403, detail="Not authorized to update this user")
         
     update_data = user_in.model_dump(exclude_unset=True)
@@ -175,10 +176,11 @@ async def delete_user(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Deletes the authenticated user's profile.
-    Requires authentication and ownership of the ID.
+    Deletes a user's profile.
+    Users can delete their own profile, admin can delete any user.
     """
-    if user_id != current_user.id:
+    # Allow admin to delete any user
+    if user_id != current_user.id and current_user.username != 'admin':
         raise HTTPException(status_code=403, detail="Not authorized to delete this user")
         
     if dbManager.deleteUserById(user_id):
@@ -247,7 +249,7 @@ async def update_item(
 ):
     """
     Updates an existing item's details.
-    Only the owner of the item can perform this action.
+    Owner can update their items, admin can update any item.
     """
     # Check if item exists and belongs to user
     existing_item = dbManager.getRows(Item) # Need a better way but let's filter
@@ -259,7 +261,8 @@ async def update_item(
     
     if not target_item:
         raise HTTPException(status_code=404, detail="Item not found")
-    if target_item.owner_id != current_user.id:
+    # Allow admin to update any item
+    if target_item.owner_id != current_user.id and current_user.username != 'admin':
         raise HTTPException(status_code=403, detail="Not authorized to update this item")
 
     update_data = item_in.model_dump(exclude_unset=True)

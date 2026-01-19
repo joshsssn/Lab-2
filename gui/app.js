@@ -88,14 +88,19 @@ function switchMainView(view) {
 
     const itemsView = document.getElementById('itemsView');
     const usersView = document.getElementById('usersView');
+    const adminView = document.getElementById('adminView');
+
+    itemsView.style.display = 'none';
+    usersView.style.display = 'none';
+    adminView.style.display = 'none';
 
     if (view === 'items') {
         itemsView.style.display = 'block';
-        usersView.style.display = 'none';
-    } else {
-        itemsView.style.display = 'none';
+    } else if (view === 'users') {
         usersView.style.display = 'block';
         loadUsers();
+    } else if (view === 'admin') {
+        adminView.style.display = 'block';
     }
 }
 
@@ -233,6 +238,15 @@ function showMainContent() {
     mainContent.style.display = 'block';
     welcomeText.textContent = `Welcome, ${currentUser.username}`;
     logoutBtn.style.display = 'block';
+
+    // Show admin tab only for admin user
+    const adminTab = document.getElementById('adminTab');
+    if (currentUser.username === 'admin') {
+        adminTab.style.display = 'block';
+    } else {
+        adminTab.style.display = 'none';
+    }
+
     loadItems();
 }
 
@@ -241,6 +255,7 @@ function showAuthSection() {
     mainContent.style.display = 'none';
     welcomeText.textContent = 'Not logged in';
     logoutBtn.style.display = 'none';
+    document.getElementById('adminTab').style.display = 'none';
 }
 
 // Items Functions
@@ -565,4 +580,245 @@ async function openUserModal(userId, fullName, username, email, rating) {
 
 function closeUserModal() {
     document.getElementById('userModal').classList.remove('active');
+}
+
+// ==================== ADMIN FUNCTIONS ====================
+
+async function adminGetUser() {
+    const userId = document.getElementById('adminUserId').value;
+    const resultEl = document.getElementById('adminUserResult');
+
+    if (!userId) {
+        resultEl.textContent = 'Please enter a User ID';
+        resultEl.style.color = '#ff6b6b';
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/users/${userId}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            resultEl.textContent = JSON.stringify(data, null, 2);
+            resultEl.style.color = '#51cf66';
+            // Pre-fill update form
+            document.getElementById('adminUserFullName').value = data.full_name || '';
+            document.getElementById('adminUserUsername').value = data.username || '';
+            document.getElementById('adminUserEmail').value = data.email || '';
+        } else {
+            resultEl.textContent = data.detail || 'User not found';
+            resultEl.style.color = '#ff6b6b';
+        }
+    } catch (error) {
+        resultEl.textContent = error.message;
+        resultEl.style.color = '#ff6b6b';
+    }
+}
+
+async function adminDeleteUser() {
+    const userId = document.getElementById('adminUserId').value;
+    const resultEl = document.getElementById('adminUserResult');
+
+    if (!userId) {
+        resultEl.textContent = 'Please enter a User ID';
+        resultEl.style.color = '#ff6b6b';
+        return;
+    }
+
+    if (!confirm(`Are you sure you want to delete user ${userId}?`)) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/users/${userId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            resultEl.textContent = 'User deleted successfully';
+            resultEl.style.color = '#51cf66';
+        } else {
+            resultEl.textContent = data.detail || 'Delete failed';
+            resultEl.style.color = '#ff6b6b';
+        }
+    } catch (error) {
+        resultEl.textContent = error.message;
+        resultEl.style.color = '#ff6b6b';
+    }
+}
+
+async function adminUpdateUser() {
+    const userId = document.getElementById('adminUserId').value;
+    const resultEl = document.getElementById('adminUserResult');
+
+    if (!userId) {
+        resultEl.textContent = 'Please enter a User ID first';
+        resultEl.style.color = '#ff6b6b';
+        return;
+    }
+
+    const updateData = {};
+    const fullName = document.getElementById('adminUserFullName').value;
+    const username = document.getElementById('adminUserUsername').value;
+    const email = document.getElementById('adminUserEmail').value;
+    const password = document.getElementById('adminUserPassword').value;
+
+    if (fullName) updateData.full_name = fullName;
+    if (username) updateData.username = username;
+    if (email) updateData.email = email;
+    if (password) updateData.password = password;
+
+    if (Object.keys(updateData).length === 0) {
+        resultEl.textContent = 'Please fill in at least one field to update';
+        resultEl.style.color = '#ff6b6b';
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/users/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify(updateData)
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            resultEl.textContent = 'User updated:\n' + JSON.stringify(data, null, 2);
+            resultEl.style.color = '#51cf66';
+        } else {
+            resultEl.textContent = data.detail || 'Update failed';
+            resultEl.style.color = '#ff6b6b';
+        }
+    } catch (error) {
+        resultEl.textContent = error.message;
+        resultEl.style.color = '#ff6b6b';
+    }
+}
+
+async function adminGetItemsBySeller() {
+    const sellerId = document.getElementById('adminItemId').value;
+    const resultEl = document.getElementById('adminItemResult');
+
+    if (!sellerId) {
+        resultEl.textContent = 'Please enter a Seller ID';
+        resultEl.style.color = '#ff6b6b';
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/items/seller/${sellerId}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            resultEl.textContent = `Found ${data.length} items:\n` + JSON.stringify(data, null, 2);
+            resultEl.style.color = '#51cf66';
+        } else {
+            resultEl.textContent = data.detail || 'Error fetching items';
+            resultEl.style.color = '#ff6b6b';
+        }
+    } catch (error) {
+        resultEl.textContent = error.message;
+        resultEl.style.color = '#ff6b6b';
+    }
+}
+
+async function adminUpdateItem() {
+    const itemId = document.getElementById('adminItemId').value;
+    const resultEl = document.getElementById('adminItemResult');
+
+    if (!itemId) {
+        resultEl.textContent = 'Please enter an Item ID';
+        resultEl.style.color = '#ff6b6b';
+        return;
+    }
+
+    const updateData = {};
+    const name = document.getElementById('adminItemName').value;
+    const price = document.getElementById('adminItemPrice').value;
+    const desc = document.getElementById('adminItemDesc').value;
+    const status = document.getElementById('adminItemStatus').value;
+
+    if (name) updateData.name = name;
+    if (price) updateData.price = parseFloat(price);
+    if (desc) updateData.description = desc;
+    if (status) updateData.status = status;
+
+    if (Object.keys(updateData).length === 0) {
+        resultEl.textContent = 'Please fill in at least one field to update';
+        resultEl.style.color = '#ff6b6b';
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/items/${itemId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify(updateData)
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            resultEl.textContent = 'Item updated:\n' + JSON.stringify(data, null, 2);
+            resultEl.style.color = '#51cf66';
+            loadItems(); // Refresh main list
+        } else {
+            resultEl.textContent = data.detail || 'Update failed';
+            resultEl.style.color = '#ff6b6b';
+        }
+    } catch (error) {
+        resultEl.textContent = error.message;
+        resultEl.style.color = '#ff6b6b';
+    }
+}
+
+async function adminDirectApiCall() {
+    const method = document.getElementById('apiMethod').value;
+    const endpoint = document.getElementById('apiEndpoint').value;
+    const bodyText = document.getElementById('apiBody').value;
+    const resultEl = document.getElementById('apiResult');
+
+    if (!endpoint) {
+        resultEl.textContent = 'Please enter an endpoint (e.g., /users/1)';
+        resultEl.style.color = '#ff6b6b';
+        return;
+    }
+
+    const options = {
+        method: method,
+        headers: {
+            'Authorization': `Bearer ${authToken}`
+        }
+    };
+
+    if ((method === 'POST' || method === 'PUT') && bodyText) {
+        options.headers['Content-Type'] = 'application/json';
+        try {
+            options.body = JSON.stringify(JSON.parse(bodyText));
+        } catch (e) {
+            resultEl.textContent = 'Invalid JSON body';
+            resultEl.style.color = '#ff6b6b';
+            return;
+        }
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}${endpoint}`, options);
+        const data = await response.json();
+
+        resultEl.textContent = `Status: ${response.status}\n\n${JSON.stringify(data, null, 2)}`;
+        resultEl.style.color = response.ok ? '#51cf66' : '#ff6b6b';
+    } catch (error) {
+        resultEl.textContent = error.message;
+        resultEl.style.color = '#ff6b6b';
+    }
 }

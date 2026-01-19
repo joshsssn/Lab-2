@@ -96,6 +96,168 @@ body {
     background: rgba(255, 255, 255, 0.2);
 }
 
+.btn-danger {
+    background: #e53238;
+    color: #fff;
+}
+
+.btn-danger:hover {
+    background: #c42b30;
+    box-shadow: 0 5px 20px rgba(229, 50, 56, 0.4);
+}
+
+/* Admin Panel */
+.admin-section {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-section h3 {
+    margin-bottom: 15px;
+    color: #f5af02;
+}
+
+.admin-section h4 {
+    margin: 15px 0 10px;
+    color: #aaa;
+    font-size: 0.9rem;
+}
+
+.admin-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.admin-row input {
+    padding: 10px 15px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    font-size: 0.9rem;
+    width: 150px;
+}
+
+.admin-form {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.admin-form h4 {
+    margin: 0 0 15px 0;
+    color: #aaa;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.admin-form .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.admin-form input,
+.admin-section .admin-form input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.admin-form input:focus {
+    outline: none;
+    border-color: #0064d2;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.admin-form input::placeholder {
+    color: #888;
+}
+
+.admin-result {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    font-family: monospace;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    min-height: 20px;
+}
+
+.api-result {
+    background: rgba(0, 0, 0, 0.4);
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+    font-size: 0.8rem;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #51cf66;
+}
+
+#adminView select {
+    padding: 12px 15px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#adminView select:focus {
+    outline: none;
+    border-color: #0064d2;
+}
+
+#adminView select option {
+    background: #1a1a2e;
+    color: #fff;
+}
+
+#adminView textarea {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    font-size: 0.9rem;
+    font-family: monospace;
+    margin-top: 10px;
+    box-sizing: border-box;
+    transition: all 0.3s ease;
+}
+
+#adminView textarea:focus {
+    outline: none;
+    border-color: #0064d2;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+#adminView textarea::placeholder {
+    color: #888;
+}
+
 /* Auth Section */
 .auth-section {
     display: flex;
