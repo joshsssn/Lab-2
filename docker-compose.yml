@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+      # Mount the db file if it's sqlite and we want persistence across container rebuilds
+      # Assuming db file is created in current dir or specific path. 
+      # Based on list_dir, no obvious db file yet, likely created by initDB.
+      # Start with just logs.

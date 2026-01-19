@@ -84,15 +84,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@app.get("/")
-async def show_welcome_page():
-    """
-    Returns a simple welcome message for the API.
-    """
-    message = {
-        "Message": "Morocco deserved to win the Africa Cup of Nations. They will be champions! Btw, nice job finding this Easter egg!"
-    }
-    return message
+
 
 
 @app.post("/login", response_model=Token)
@@ -324,3 +316,8 @@ async def rate_seller(
             detail="Rating failed. You may not be the buyer of this transaction, or it has already been rated."
         )
     return rating
+
+
+# Static files mount - MUST be at the end to not intercept API routes
+from fastapi.staticfiles import StaticFiles
+app.mount("/", StaticFiles(directory="gui", html=True), name="gui")
