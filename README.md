@@ -1,43 +1,64 @@
-# Boilerplate
+# Marketplace API Boilerplate
 
-Boilerplate is a standard repository that can be used to start any Python project for a backend application. It follows the architecture taught in class : 
- 
-- a service layer which is a fastapi API that can be contacted via HTTP (main.py)
-- a working layer which contains the code (nearly everything in core)
-- a storage layer which contains the part that will connect you to the physical storage and manage objects (dbmanager / dbmodel)
+This repository is a comprehensive backend application for a Marketplace, built with FastAPI, SQLAlchemy, and SQLite. It implements a secure, scalable architecture with the following layers:
+
+- **Service Layer**: FastAPI API handling HTTP requests and authentication ([main.py](main.py)).
+- **Working Layer**: Business logic and core functionality ([app/core](app/core)).
+- **Storage Layer**: Database abstraction and ORM modeling ([app/core/db](app/core/db)).
+
+## Key Features
+
+- **User Authentication**: Secure registration and login using PBKDF2 password hashing and JWT (JSON Web Tokens).
+- **Marketplace Management**: Full CRUD for Users and Items.
+- **Transaction System**: Purchase flow with item status tracking (`AVAILABLE`, `SOLD`, `REMOVED`).
+- **Rating System**: Social feedback mechanism where buyers rate sellers, with automatic average rating calculations.
+- **Advanced Filtering**: Search items by keywords, price range, and seller reputation.
+- **Massive Data Seeding**: Scripts to populate the database with a realistic dataset of 50 users, 200 items, and simulated transaction histories.
 
 ## Installation
 
-Use uv to install the requirements. If you don't know how to use uv or install it, go back to the first part of the lab.
+1. **Environment Setup**:
+   Use `uv` to manage the environment and dependencies.
 
-You will need a uv virtual environment for this code to work.
+   ```bash
+   uv sync
+   ```
+2. **Configuration**:
 
-To install the packages :
+   - In `app/conf`, copy `config_template.ini` to `config.ini` and configure your settings.
+   - Ensure `logging.ini` is present in the same directory.
+3. **Initialize Database**:
+   Run the seeding script to create the schema and populate the database with 200+ entities:
 
-```bash
-uv sync
-```
-
-- In app/conf, copy the config_template.ini and rename it config.ini and fill in the correct configuration.
-- In app/conf, copy the logging_template.ini and rename it logging.ini and leave it this way.
-
-run to initialise the database : 
-
-```bash
-uv run app/utils/initDB.py
-```
+   ```bash
+   uv run app/utils/initDB.py
+   ```
 
 ## Usage
 
-```bash 
+Start the development server:
+
+```bash
 uv run fastapi dev
 ```
 
-You can then go to http://127.0.0.1:8000/docs to see the documentation and available methods of the application created.
+Visit [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) to explore the interactive API documentation (Swagger UI).
+
+### Authentication
+
+Most endpoints require a JWT token. Use the `/login` endpoint to obtain a token, then include it in the `Authorization` header:
+`Authorization: Bearer <your_token>`
+
+## Architecture
+
+- `app/core/db/db_manager.py`: Handles complex queries like filtered items and transaction logic.
+- `app/core/db/db_model.py`: Defines SQL tables for Users, Items, Transactions, and Ratings.
+- `app/core/auth.py`: Contains security logic for tokens and hashing.
+- `app/utils/initDB.py`: Scalable script for bulk data generation.
 
 ## Contributing
 
-This repository is not opened to contributions at the moment. I strongly advise you to fork this repository and make your own boilerplate : you can add a log manager, modify the data model ... 
+This repository is not opened to contributions at the moment. I strongly advise you to fork this repository and make your own boilerplate : you can add a log manager, modify the data model ...
 
 ## License
 
@@ -47,7 +68,7 @@ You can do basically anything using this code, even sell your application and cl
 
 ## Final advices
 
-- I have made this readme with [makeareadme](https://www.makeareadme.com/) and advise you do the same when you create a new application. A repository without any readme will not be corrected. 
+- I have made this readme with [makeareadme](https://www.makeareadme.com/) and advise you do the same when you create a new application. A repository without any readme will not be corrected.
 - You should include tests in your application when possible
 - I have included Python standard gitignore, if some files should not be commited (like a sqlite database ... for example !), you have to update the gitignore because I won't do it for you !
 - You can find the conda instructions [here](https://docs.conda.io/projects/conda/en/4.6.0/_downloads/52a95608c49671267e40c689e0bc00ca/conda-cheatsheet.pdf) if you are lost with virtual environments.
@@ -57,3 +78,5 @@ You can do basically anything using this code, even sell your application and cl
 Sincerely
 
 Prof. Sorbus
+
+# Forked with love by Josh E. SOUSSAN ❤️
