@@ -127,6 +127,14 @@ async def create_user(user_in: UserCreate):
     raise HTTPException(status_code=400, detail="User could not be created")
 
 
+@app.get("/users", response_model=List[UserResponse])
+async def get_all_users():
+    """
+    Retrieves a list of all users.
+    """
+    return dbManager.getRows(User)
+
+
 @app.get("/users/{user_id}", response_model=UserResponse)
 async def get_user(user_id: int):
     """
@@ -291,6 +299,7 @@ async def purchase_item(
     return transaction
 
 
+
 @app.post("/ratings", response_model=RatingResponse)
 async def rate_seller(
     rating_in: RatingCreate,
@@ -318,6 +327,23 @@ async def rate_seller(
     return rating
 
 
+@app.post("/api/predict-price")
+async def predict_price_endpoint(payload: dict):
+    title = payload.get("title")
+    if not title:
+        raise HTTPException(status_code=400, detail="Title is required")
+    
+    try:
+        from price_predictor.inference import predict_price
+        predicted_price = predict_price(title)
+        return {"predicted_price": predicted_price}
+    except Exception as e:
+        logger.error(f"Prediction failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 # Static files mount - MUST be at the end to not intercept API routes
+# Reload trigger
 from fastapi.staticfiles import StaticFiles
 app.mount("/", StaticFiles(directory="gui", html=True), name="gui")

@@ -46,56 +46,95 @@ def populateUsers(session):
     
     users = []
     pw_hash = get_password_hash("password123")
-    usernames = set()
     
-    # Generate 50 unique users
-    for i in range(50):
-        fn = random.choice(first_names)
-        ln = random.choice(last_names)
-        username = f"{fn.lower()}_{ln.lower()}_{i}"
-        email = f"{username}@example.com"
+    # Generate 300 users
+    for i in range(300):
+        username = f"user{i}"
+        email = f"user{i}@example.com"
+        password = "password"
+        
+        hashed_password = get_password_hash(password)
         
         users.append(User(
-            full_name=f"{fn} {ln}",
+            full_name=f"User {i}", # Added full_name for consistency
             username=username,
             email=email,
-            password_hash=pw_hash,
-            rating=Decimal(random.uniform(3.0, 5.0)).quantize(Decimal("0.0"))
+            password_hash=hashed_password,
+            rating=Decimal(random.uniform(1.0, 5.0)).quantize(Decimal("0.0")) # Changed to Decimal and quantize
         ))
     
     session.add_all(users)
     session.commit()
+    print(f"Populated {len(users)} users.")
 
 
 def populateItems(session):
     users = session.query(User).all()
     
-    adjectives = ["Vintage", "Modern", "Sleek", "Sturdy", "Reliable", "Classic", "Premium", "Budget", "Rare", "Essential"]
-    nouns = ["Camera", "Bike", "Laptop", "Smartphone", "Watch", "Guitar", "Headphones", "Speaker", "Monitor", "Keyboard",
-             "Desk", "Chair", "Lamp", "Backpack", "Tool", "Book", "Console", "Tablet", "Microwave", "Blender"]
+    # Path to CSV
+    csv_path = pathlib.Path(__file__).parent / "marketing_sample_for_ebay_com-ebay_com_product__20210101_20210331__30k_data.csv"
+    print(f"DEBUG: Resolving CSV path to: {csv_path.resolve()}")
     
-    items = []
-    status_options = [ItemStatus.AVAILABLE, ItemStatus.AVAILABLE, ItemStatus.AVAILABLE, ItemStatus.SOLD, ItemStatus.REMOVED]
+    try:
+        if not csv_path.exists():
+            print(f"ERROR: CSV file not found at {csv_path}")
+            return
 
-    # Generate 200 items
-    for i in range(200):
-        adj = random.choice(adjectives)
-        noun = random.choice(nouns)
-        name = f"{adj} {noun}"
-        price = Decimal(random.uniform(10.0, 1500.0)).quantize(Decimal("0.00"))
-        status = random.choice(status_options)
-        owner = random.choice(users)
+        import pandas as pd
+        # on_bad_lines='skip' ensures we don't crash on malformed rows
+        # User requested to be less aggressive with skipping. We only need Title and Price.
+        # Reading only specific columns helps avoid tokenizing errors in irrelevant columns like Description
+        try:
+            df = pd.read_csv(csv_path, usecols=['Title', 'Price'], on_bad_lines='skip')
+        except ValueError:
+            # Fallback if columns are named differently (though we saw them in header)
+            df = pd.read_csv(csv_path, on_bad_lines='skip')
+
+        print(f"DEBUG: Loaded CSV with {len(df)} rows.")
         
-        items.append(Item(
-            name=name,
-            description=f"A high-quality {name.lower()} in excellent condition. Perfect for daily use.",
-            price=price,
-            status=status,
-            owner_id=owner.id
-        ))
-    
-    session.add_all(items)
-    session.commit()
+        # Filter for rows that have BOTH Title and Price
+        df_clean = df.dropna(subset=['Title', 'Price'])
+        print(f"DEBUG: {len(df_clean)} rows have valid Title and Price.")
+
+        items = []
+        # 95% Available, 5% Sold/Removed (Sold is usually better for testing than Removed)
+        status_choices = [ItemStatus.AVAILABLE, ItemStatus.SOLD]
+        status_weights = [0.95, 0.05]
+
+        for index, row in df_clean.iterrows():
+            # Clean Price: "$108.73" -> 108.73
+            try:
+                price_str = str(row['Price'])
+                # Remove currency symbols and cleanup
+                price_val = float(price_str.replace('$', '').replace(',', '').strip())
+            except:
+                continue # Skip if price is unparseable despite notna check
+            
+            title = str(row['Title'])
+            # Description is "Imported from eBay" as requested "le reste on s'en fiche"
+            desc = "Imported from eBay" 
+            
+            # Weighted random choice
+            status = random.choices(status_choices, weights=status_weights, k=1)[0]
+            
+            # Assign to random owner from our 300 users
+            if users:
+                owner = random.choice(users)
+                items.append(Item(
+                    name=title[:100], 
+                    description=desc,
+                    price=Decimal(price_val).quantize(Decimal("0.00")),
+                    status=status,
+                    owner_id=owner.id
+                ))
+            
+        session.add_all(items)
+        session.commit()
+        print(f"Populated {len(items)} items from CSV.")
+        
+    except Exception as e:
+        print(f"Error loading CSV: {e}")
+
 
 
 def populateTransactionsAndRatings(session):

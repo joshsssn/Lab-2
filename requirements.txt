@@ -5,3 +5,6 @@ python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
 pymysql
+
+tensorflow
+scikit-learn

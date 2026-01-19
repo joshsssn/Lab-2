@@ -289,11 +289,19 @@ function renderItems(items) {
     }
 
     itemsGrid.innerHTML = items.map(item => `
-        <div class="item-card" onclick="openItemModal(${item.id}, '${escapeHtml(item.name)}', '${escapeHtml(item.description || '')}', ${item.price}, ${item.owner_id}, '${item.status}')">
-            <h3>${escapeHtml(item.name)}</h3>
-            <p class="description">${escapeHtml(item.description || 'No description')}</p>
-            <p class="price">$${parseFloat(item.price).toFixed(2)}</p>
-            <span class="status ${item.status.toLowerCase()}">${item.status}</span>
+        <div class="item-card">
+            <div onclick="openItemModal(${item.id}, '${escapeHtml(item.name)}', '${escapeHtml(item.description || '')}', ${item.price}, ${item.owner_id}, '${item.status}')">
+                <h3>${escapeHtml(item.name)}</h3>
+                <p class="description">${escapeHtml(item.description || 'No description')}</p>
+                <p class="price">$${parseFloat(item.price).toFixed(2)}</p>
+                <span class="status ${item.status.toLowerCase()}">${item.status}</span>
+            </div>
+            <div class="predict-section">
+                <button class="btn btn-predict" onclick="event.stopPropagation(); predictItemPrice(${item.id}, '${escapeHtml(item.name)}')">🔮 Predict AI Price</button>
+                <div class="predict-result" id="predict-result-${item.id}" style="display: none;">
+                    AI Estimate: <span class="predicted-price"></span>
+                </div>
+            </div>
         </div>
     `).join('');
 }
@@ -509,18 +517,11 @@ async function loadUsers() {
     usersGrid.innerHTML = '<p class="loading">Loading users...</p>';
 
     try {
-        // Fetch users by iterating (API doesn't have a list all endpoint)
-        const users = [];
-        for (let i = 1; i <= 52; i++) {
-            try {
-                const response = await fetch(`${API_BASE}/users/${i}`);
-                if (response.ok) {
-                    users.push(await response.json());
-                }
-            } catch (e) {
-                // User doesn't exist, continue
-            }
-        }
+        // Fetch all users from the new endpoint
+        const response = await fetch(`${API_BASE}/users`);
+        if (!response.ok) throw new Error('Failed to load users');
+
+        const users = await response.json();
         renderUsers(users);
     } catch (error) {
         usersGrid.innerHTML = `<p class="error-msg">${error.message}</p>`;
@@ -822,3 +823,38 @@ async function adminDirectApiCall() {
         resultEl.style.color = '#ff6b6b';
     }
 }
+
+// Predict price for a specific item card
+async function predictItemPrice(itemId, itemName) {
+    const resultEl = document.getElementById(`predict-result-${itemId}`);
+    const btn = resultEl.previousElementSibling;
+
+    btn.disabled = true;
+    btn.textContent = '🔮 Predicting...';
+
+    try {
+        const response = await fetch(`${API_BASE}/api/predict-price`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ title: itemName })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.detail || 'Prediction failed');
+
+        resultEl.querySelector('.predicted-price').textContent = `$${data.predicted_price.toFixed(2)}`;
+        resultEl.style.display = 'block';
+        btn.textContent = '🔮 Refresh Prediction';
+    } catch (error) {
+        resultEl.querySelector('.predicted-price').textContent = 'Error: ' + error.message;
+        resultEl.style.display = 'block';
+        btn.textContent = '🔮 Retry Prediction';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
