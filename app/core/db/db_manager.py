@@ -1,148 +1,160 @@
 import logging
-from typing import List, Any, Optional, Type, Dict, Tuple
+from typing import List, Any, Optional, Type, Dict
+from decimal import Decimal
 
-import pandas as pd
-from pandas import DataFrame
-from sqlalchemy import create_engine, and_, text, desc, or_
-from sqlalchemy.orm import sessionmaker
+from pymongo import MongoClient
+from pymongo.database import Database
+from pymongo.collection import Collection
+
 from app.core.config_manager import ConfigManager
-from app.core.db.db_model import User, Item, Transaction
+from app.core.db.db_model import User, Item, Transaction, Rating, ItemStatus
 
 logger = logging.getLogger(__name__)
 
 
 class DBManager:
+    """
+    MongoDB-based database manager for semi-structured document storage.
+    Replaces the previous SQLAlchemy-based implementation.
+    """
 
     def __init__(self, configManager: ConfigManager):
         self.dbType = configManager.getDBType()
         self.dbUrl = configManager.getDBUrl()
-        self.engine = self._buildEngine()
-        self.session = self.getSession()
+        self.dbName = configManager.getMongoDBName()
+        self.client: MongoClient = MongoClient(self.dbUrl)
+        self.db: Database = self.client[self.dbName]
+        
+        # Collections
+        self.users: Collection = self.db["users"]
+        self.items: Collection = self.db["items"]
+        self.transactions: Collection = self.db["transactions"]
+        self.ratings: Collection = self.db["ratings"]
+        self.counters: Collection = self.db["counters"]
+        
+        # Ensure indexes for unique fields
+        self.users.create_index("username", unique=True)
+        self.users.create_index("email", unique=True)
+        self.users.create_index("id", unique=True)
+        self.items.create_index("id", unique=True)
+        self.transactions.create_index("id", unique=True)
+        self.ratings.create_index("id", unique=True)
+        self.ratings.create_index("transaction_id", unique=True)
+        
+        logger.info(f"Connected to MongoDB at {self.dbUrl}")
 
-    def _buildEngine(
-        self,
-    ):
-        if self.dbType == "sqlite":
-            # 'sqlite:///C:\\path\\to\\foo.db'
-            return create_engine(f"sqlite:///{self.dbUrl}", echo=True)
-        elif self.dbType == "mysql":
-            # 'mysql+pymysql://scott:tiger@localhost:3306/foo'
-            return create_engine(f"mysql+pymysql://{self.dbUrl}", echo=True)
-        elif self.dbType == "postgresql":
-            # 'postgresql+psycopg2://scott:tiger@localhost:5432/foo'
-            return create_engine(f"postgresql+psycopg2://{self.dbUrl}", echo=True)
-        else:
-            raise NotImplementedError
+    def _getNextId(self, collection_name: str) -> int:
+        """Auto-increment ID generator for MongoDB documents."""
+        result = self.counters.find_one_and_update(
+            {"_id": collection_name},
+            {"$inc": {"seq": 1}},
+            upsert=True,
+            return_document=True
+        )
+        return result["seq"]
 
-    def getEngine(self):
-        return self.engine
-
-    def getSession(self):
-        Session = sessionmaker(bind=self.engine)
-        return Session()
-
-    def insertRow(self, row):
+    def insertRow(self, row: Any) -> bool:
         """
-        Inserts a new row into the database.
-        :param row: The model instance to add.
+        Inserts a new document into the appropriate collection.
+        :param row: The model instance to add (User, Item, Transaction, or Rating).
         :return: Boolean indicating success.
         """
-        result = False
-        session = self.getSession()
         try:
-            session.add(row)
-            session.commit()
-            result = True
+            if isinstance(row, User):
+                row.id = self._getNextId("users")
+                self.users.insert_one(row.to_dict())
+            elif isinstance(row, Item):
+                row.id = self._getNextId("items")
+                self.items.insert_one(row.to_dict())
+            elif isinstance(row, Transaction):
+                row.id = self._getNextId("transactions")
+                self.transactions.insert_one(row.to_dict())
+            elif isinstance(row, Rating):
+                row.id = self._getNextId("ratings")
+                self.ratings.insert_one(row.to_dict())
+            else:
+                logger.warning(f"Unknown row type: {type(row)}")
+                return False
+            return True
         except Exception as e:
             logger.warning(f"Unable to insert row with exception {e}")
-        finally:
-            session.close()
-            return result
+            return False
 
-    def removeRow(self, row):
+    def removeRow(self, row: Any) -> bool:
         """
-        Remove a row in a table.
+        Remove a document from its collection.
         :param row: The model instance to delete.
         :return: Boolean indicating success.
         """
-        result = False
-        session = self.getSession()
         try:
-            session.delete(row)
-            session.commit()
-            result = True
+            if isinstance(row, User):
+                self.users.delete_one({"id": row.id})
+            elif isinstance(row, Item):
+                self.items.delete_one({"id": row.id})
+            elif isinstance(row, Transaction):
+                self.transactions.delete_one({"id": row.id})
+            elif isinstance(row, Rating):
+                self.ratings.delete_one({"id": row.id})
+            else:
+                return False
+            return True
         except Exception as e:
             logger.warning(f"Unable to remove row with exception {e}")
-        finally:
-            session.close()
-            return result
+            return False
 
-    def executeRawSqlQuery(self, sqlQuery: str) -> DataFrame:
-        """
-        This function takes a raw sql text, then run it in a sqlalchemy engine. At last, it converts the result
-        into a pandas dataframe
-        :param sqlQuery:
-        :return:
-        """
-        conn = self.engine.connect()
-        query = conn.execute(text(sqlQuery))
-        df = pd.DataFrame(query.fetchall())
-        conn.close()
-        return df
-
-    def getRows(self, objName) -> Any:
-        session = self.getSession()
-        rows = session.query(objName).all()
-        session.close()
-        return rows
+    def getRows(self, objType: Type) -> List[Any]:
+        """Get all documents from a collection."""
+        try:
+            if objType == User:
+                return [User.from_dict(doc) for doc in self.users.find()]
+            elif objType == Item:
+                return [Item.from_dict(doc) for doc in self.items.find()]
+            elif objType == Transaction:
+                return [Transaction.from_dict(doc) for doc in self.transactions.find()]
+            elif objType == Rating:
+                return [Rating.from_dict(doc) for doc in self.ratings.find()]
+            return []
+        except Exception as e:
+            logger.warning(f"Unable to get rows: {e}")
+            return []
 
     def getUserById(self, user_id: int) -> Optional[User]:
-        session = self.getSession()
-        try:
-            return session.query(User).filter(User.id == user_id).first()
-        finally:
-            session.close()
+        """Find a user by their ID."""
+        doc = self.users.find_one({"id": user_id})
+        return User.from_dict(doc) if doc else None
 
     def getUserByUsername(self, username: str) -> Optional[User]:
-        session = self.getSession()
-        try:
-            return session.query(User).filter(User.username == username).first()
-        finally:
-            session.close()
+        """Find a user by their username."""
+        doc = self.users.find_one({"username": username})
+        return User.from_dict(doc) if doc else None
 
     def deleteUserById(self, user_id: int) -> bool:
-        session = self.getSession()
+        """Delete a user by their ID."""
         try:
-            user = session.query(User).filter(User.id == user_id).first()
-            if user:
-                session.delete(user)
-                session.commit()
-                return True
-            return False
+            result = self.users.delete_one({"id": user_id})
+            return result.deleted_count > 0
         except Exception as e:
             logger.warning(f"Unable to delete user {user_id}: {e}")
             return False
-        finally:
-            session.close()
 
     def updateUser(self, user_id: int, update_data: dict) -> Optional[User]:
-        session = self.getSession()
+        """Update a user's attributes."""
         try:
-            user = session.query(User).filter(User.id == user_id).first()
-            if user:
-                for key, value in update_data.items():
-                    if value is not None:
-                        setattr(user, key, value)
-                session.commit()
-                # Refresh from DB before closing session
-                session.refresh(user)
-                return user
+            # Convert Decimal to float for MongoDB
+            for key, value in update_data.items():
+                if isinstance(value, Decimal):
+                    update_data[key] = float(value)
+            
+            result = self.users.update_one(
+                {"id": user_id},
+                {"$set": update_data}
+            )
+            if result.modified_count > 0 or result.matched_count > 0:
+                return self.getUserById(user_id)
             return None
         except Exception as e:
             logger.warning(f"Unable to update user {user_id}: {e}")
             return None
-        finally:
-            session.close()
 
     def getAvailableItems(
         self, 
@@ -152,74 +164,78 @@ class DBManager:
         min_seller_rating: Optional[float] = None
     ) -> List[Item]:
         """
-        Retrieves items with status 'AVAILABLE', optionally filtered by price, keyword, and seller rating.
-        :param min_price: Minimum price filter.
-        :param max_price: Maximum price filter.
-        :param keyword: Search in item name and description.
-        :param min_seller_rating: Minimum average rating of the seller.
-        :return: List of Item objects.
+        Retrieves items with status 'AVAILABLE', optionally filtered.
         """
-        session = self.getSession()
         try:
-            from app.core.db.db_model import ItemStatus, User
-            query = session.query(Item).join(User, Item.owner_id == User.id)
-            query = query.filter(Item.status == ItemStatus.AVAILABLE)
+            query: Dict[str, Any] = {"status": ItemStatus.AVAILABLE.value}
             
             if min_price is not None:
-                query = query.filter(Item.price >= min_price)
+                query["price"] = query.get("price", {})
+                query["price"]["$gte"] = min_price
             if max_price is not None:
-                query = query.filter(Item.price <= max_price)
+                query["price"] = query.get("price", {})
+                query["price"]["$lte"] = max_price
             if keyword:
-                query = query.filter(
-                    or_(
-                        Item.name.ilike(f"%{keyword}%"),
-                        Item.description.ilike(f"%{keyword}%")
-                    )
-                )
+                query["$or"] = [
+                    {"name": {"$regex": keyword, "$options": "i"}},
+                    {"description": {"$regex": keyword, "$options": "i"}}
+                ]
+            
+            items = [Item.from_dict(doc) for doc in self.items.find(query)]
+            
+            # Filter by seller rating if needed
             if min_seller_rating is not None:
-                query = query.filter(User.rating >= min_seller_rating)
-                
-            return query.all()
-        finally:
-            session.close()
+                filtered_items = []
+                for item in items:
+                    seller = self.getUserById(item.owner_id)
+                    if seller and float(seller.rating) >= min_seller_rating:
+                        filtered_items.append(item)
+                return filtered_items
+            
+            return items
+        except Exception as e:
+            logger.warning(f"Error getting available items: {e}")
+            return []
 
     def getItemsBySeller(self, seller_id: int) -> List[Item]:
-        """
-        Retrieves all items belonging to a specific user.
-        """
-        session = self.getSession()
+        """Retrieves all items belonging to a specific user."""
         try:
-            return session.query(Item).filter(Item.owner_id == seller_id).all()
-        finally:
-            session.close()
+            return [Item.from_dict(doc) for doc in self.items.find({"owner_id": seller_id})]
+        except Exception as e:
+            logger.warning(f"Error getting items by seller: {e}")
+            return []
 
     def updateItem(self, item_id: int, update_data: dict) -> Optional[Item]:
-        """
-        Updates an item's attributes based on the provided dictionary.
-        """
-        session = self.getSession()
+        """Updates an item's attributes."""
         try:
-            item = session.query(Item).filter(Item.id == item_id).first()
-            if item:
-                for key, value in update_data.items():
-                    if value is not None:
-                        # Handle Enum conversion if status is passed as string
-                        if key == "status" and isinstance(value, str):
-                            from app.core.db.db_model import ItemStatus
-                            try:
-                                value = ItemStatus(value)
-                            except ValueError:
-                                continue
-                        setattr(item, key, value)
-                session.commit()
-                session.refresh(item)
-                return item
+            # Handle status enum conversion
+            if "status" in update_data:
+                status_val = update_data["status"]
+                if hasattr(status_val, 'value'):
+                    update_data["status"] = status_val.value
+                elif isinstance(status_val, str):
+                    # Validate it's a valid status
+                    try:
+                        ItemStatus(status_val)
+                    except ValueError:
+                        del update_data["status"]
+            
+            # Convert Decimal to float
+            for key, value in update_data.items():
+                if isinstance(value, Decimal):
+                    update_data[key] = float(value)
+            
+            result = self.items.update_one(
+                {"id": item_id},
+                {"$set": update_data}
+            )
+            if result.modified_count > 0 or result.matched_count > 0:
+                doc = self.items.find_one({"id": item_id})
+                return Item.from_dict(doc) if doc else None
             return None
         except Exception as e:
             logger.warning(f"Unable to update item {item_id}: {e}")
             return None
-        finally:
-            session.close()
 
     def purchaseItem(self, buyer_id: int, item_id: int) -> Optional[Transaction]:
         """
@@ -229,15 +245,14 @@ class DBManager:
         - Updates item status to 'SOLD'.
         - Creates and returns a Transaction record.
         """
-        session = self.getSession()
         try:
-            from app.core.db.db_model import ItemStatus
-            
             # 1. Fetch item
-            item = session.query(Item).filter(Item.id == item_id).first()
-            if not item:
+            item_doc = self.items.find_one({"id": item_id})
+            if not item_doc:
                 logger.warning(f"Item {item_id} not found")
                 return None
+            
+            item = Item.from_dict(item_doc)
             
             # 2. Check if item is available
             if item.status != ItemStatus.AVAILABLE:
@@ -256,39 +271,36 @@ class DBManager:
                 item_id=item_id,
                 transaction_price=item.price
             )
+            transaction.id = self._getNextId("transactions")
+            self.transactions.insert_one(transaction.to_dict())
             
             # 5. Update Item Status
-            item.status = ItemStatus.SOLD
+            self.items.update_one(
+                {"id": item_id},
+                {"$set": {"status": ItemStatus.SOLD.value}}
+            )
             
-            session.add(transaction)
-            session.commit()
-            session.refresh(transaction)
             return transaction
             
         except Exception as e:
             logger.error(f"Purchase failed for item {item_id} by buyer {buyer_id}: {e}")
-            session.rollback()
             return None
-        finally:
-            session.close()
 
-    def rateSeller(self, rater_id: int, transaction_id: int, score: int) -> Optional[Any]:
+    def rateSeller(self, rater_id: int, transaction_id: int, score: int) -> Optional[Rating]:
         """
         Submits a rating for a transaction.
         - Verification: Rater must be the buyer.
         - Verification: Transaction must not have been rated yet.
         - Side Effect: Recalculates and updates the seller's average rating.
         """
-        session = self.getSession()
         try:
-            from app.core.db.db_model import Rating, User, Transaction
-            from sqlalchemy import func
-
             # 1. Verify transaction
-            tx = session.query(Transaction).filter(Transaction.id == transaction_id).first()
-            if not tx:
+            tx_doc = self.transactions.find_one({"id": transaction_id})
+            if not tx_doc:
                 logger.warning(f"Transaction {transaction_id} not found")
                 return None
+            
+            tx = Transaction.from_dict(tx_doc)
             
             # 2. Verify rater is buyer
             if tx.buyer_id != rater_id:
@@ -296,7 +308,7 @@ class DBManager:
                 return None
             
             # 3. Check if already rated
-            existing = session.query(Rating).filter(Rating.transaction_id == transaction_id).first()
+            existing = self.ratings.find_one({"transaction_id": transaction_id})
             if existing:
                 logger.warning(f"Transaction {transaction_id} already rated")
                 return None
@@ -308,20 +320,36 @@ class DBManager:
                 rated_id=tx.seller_id,
                 score=score
             )
-            session.add(rating)
-            session.flush() # flush to include in calc
+            rating.id = self._getNextId("ratings")
+            self.ratings.insert_one(rating.to_dict())
 
             # 5. Update seller average rating
-            seller = session.query(User).filter(User.id == tx.seller_id).first()
-            avg_score = session.query(func.avg(Rating.score)).filter(Rating.rated_id == tx.seller_id).scalar()
-            seller.rating = avg_score
+            pipeline = [
+                {"$match": {"rated_id": tx.seller_id}},
+                {"$group": {"_id": None, "avg_score": {"$avg": "$score"}}}
+            ]
+            result = list(self.ratings.aggregate(pipeline))
+            if result:
+                avg_score = result[0]["avg_score"]
+                self.users.update_one(
+                    {"id": tx.seller_id},
+                    {"$set": {"rating": round(avg_score, 2)}}
+                )
             
-            session.commit()
-            session.refresh(rating)
             return rating
         except Exception as e:
             logger.error(f"Rating failed: {e}")
-            session.rollback()
             return None
-        finally:
-            session.close()
+
+    def dropAllCollections(self):
+        """Drop all collections - used for database reset."""
+        self.users.drop()
+        self.items.drop()
+        self.transactions.drop()
+        self.ratings.drop()
+        self.counters.drop()
+        logger.info("All collections dropped")
+
+    def close(self):
+        """Close the MongoDB connection."""
+        self.client.close()

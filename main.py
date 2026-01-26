@@ -54,6 +54,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global exception handler to capture full tracebacks
+from fastapi import Request
+from fastapi.responses import JSONResponse
+import traceback
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}")
+    logger.error(traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)}
+    )
+
 # Authentication setup
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
@@ -132,7 +146,18 @@ async def get_all_users():
     """
     Retrieves a list of all users.
     """
-    return dbManager.getRows(User)
+    import traceback
+    try:
+        users = dbManager.getRows(User)
+        logger.info(f"Got {len(users)} users from DB")
+        # Explicitly convert to response model for proper serialization
+        result = [UserResponse.model_validate(u) for u in users]
+        logger.info(f"Converted {len(result)} users to UserResponse")
+        return result
+    except Exception as e:
+        logger.error(f"Error in get_all_users: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/users/{user_id}", response_model=UserResponse)
@@ -143,7 +168,7 @@ async def get_user(user_id: int):
     user = dbManager.getUserById(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return UserResponse.model_validate(user)
 
 
 @app.put("/users/{user_id}", response_model=UserResponse)
@@ -167,7 +192,7 @@ async def update_user(
     updated_user = dbManager.updateUser(user_id, update_data)
     if not updated_user:
         raise HTTPException(status_code=404, detail="User not found or update failed")
-    return updated_user
+    return UserResponse.model_validate(updated_user)
 
 
 @app.delete("/users/{user_id}")
@@ -210,7 +235,7 @@ async def create_item(
         all_items = dbManager.getRows(Item)
         for i in reversed(all_items):
             if i.name == item_in.name and i.owner_id == current_user.id:
-                return i
+                return ItemResponse.model_validate(i)
     raise HTTPException(status_code=400, detail="Item could not be created")
 
 
@@ -225,12 +250,13 @@ async def get_available_items(
     Lists all available items with optional filtering.
     Filters: Price range, keyword in name/description, and minimum seller reputation.
     """
-    return dbManager.getAvailableItems(
+    items = dbManager.getAvailableItems(
         min_price=min_price, 
         max_price=max_price, 
         keyword=keyword, 
         min_seller_rating=min_seller_rating
     )
+    return [ItemResponse.model_validate(i) for i in items]
 
 
 @app.get("/items/seller/{seller_id}", response_model=List[ItemResponse])
@@ -238,7 +264,8 @@ async def get_items_by_seller(seller_id: int):
     """
     Retrieves all items (regardless of status) owned by a specific seller.
     """
-    return dbManager.getItemsBySeller(seller_id)
+    items = dbManager.getItemsBySeller(seller_id)
+    return [ItemResponse.model_validate(i) for i in items]
 
 
 @app.put("/items/{item_id}", response_model=ItemResponse)
@@ -269,7 +296,7 @@ async def update_item(
     updated_item = dbManager.updateItem(item_id, update_data)
     if not updated_item:
         raise HTTPException(status_code=400, detail="Update failed")
-    return updated_item
+    return ItemResponse.model_validate(updated_item)
 
 
 @app.post("/purchases", response_model=TransactionResponse)
@@ -296,7 +323,7 @@ async def purchase_item(
             status_code=400, 
             detail="Purchase failed. The item may not be available, or you are trying to buy your own item."
         )
-    return transaction
+    return TransactionResponse.model_validate(transaction)
 
 
 
@@ -324,7 +351,7 @@ async def rate_seller(
             status_code=400, 
             detail="Rating failed. You may not be the buyer of this transaction, or it has already been rated."
         )
-    return rating
+    return RatingResponse.model_validate(rating)
 
 
 @app.post("/api/predict-price")

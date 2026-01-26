@@ -1,17 +1,28 @@
 services:
-  db:
-    image: mariadb:latest
+  mongodb:
+    image: mongo:latest
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: marketplace
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+      MONGO_INITDB_DATABASE: marketplace
     ports:
-      - "3307:3306"
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
 
   app:
     build: .
+    environment:
+      - DB_HOST=mongodb
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=marketplace
     ports:
       - "8000:8000"
     depends_on:
-      - db
+      - mongodb
     volumes:
       - ./logs:/app/logs
+
+volumes:
+  mongodb_data:

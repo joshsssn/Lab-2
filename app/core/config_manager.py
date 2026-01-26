@@ -26,7 +26,7 @@ MANDATORY_KEYS = [
     "db_type",
     "path",
 ]
-AVA_DB_TYPE = ["sqlite", "mysql", "postgresql"]
+AVA_DB_TYPE = ["sqlite", "mysql", "postgresql", "mongodb"]
 DEFAULT_DB_TYPE = "sqlite"
 
 
@@ -122,6 +122,19 @@ class ConfigManager:
                 res = f"{str(DEFAULT_DB_PATH)}/{DEFAULT_DB_NAME}"
             return res
 
+        elif dbType == "mongodb":
+            # MongoDB connection string: mongodb://user:password@host:port/database
+            # MongoDB connection string: mongodb://user:password@host:port/database
+            user = os.getenv("DB_USER", self.config["DATABASE"]["USERNAME"])
+            password = os.getenv("DB_PASSWORD", self.config["DATABASE"]["PASSWORD"])
+            host = os.getenv("DB_HOST", self.config["DATABASE"]["HOST"])
+            port = os.getenv("DB_PORT", self.config["DATABASE"]["PORT"])
+            db_name = os.getenv("DB_NAME", self.config["DATABASE"]["DB"])
+            
+            return "mongodb://{}:{}@{}:{}/{}?authSource=admin".format(
+                user, password, host, port, db_name
+            )
+
         # This is what you need to add in the conf if you want to replace sqlite with postgre or mysql ! that's all
         else:
             return "{}:{}@{}:{}/{}".format(
@@ -131,3 +144,7 @@ class ConfigManager:
                 self.config["DATABASE"]["PORT"],
                 self.config["DATABASE"]["DB"],
             )
+
+    def getMongoDBName(self) -> str:
+        """Returns the MongoDB database name."""
+        return self.config["DATABASE"]["DB"]

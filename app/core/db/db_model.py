@@ -1,10 +1,8 @@
 import enum
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, DECIMAL, Enum, Text
-from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
+from decimal import Decimal
+from typing import Optional, Any
+from dataclasses import dataclass, field, asdict
 
 
 class ItemStatus(enum.Enum):
@@ -13,61 +11,154 @@ class ItemStatus(enum.Enum):
     REMOVED = "Removed"
 
 
-class User(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    full_name = Column(String(255), nullable=False)
-    username = Column(String(255), unique=True, nullable=False)
-    email = Column(String(255), unique=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
-    rating = Column(DECIMAL(3, 2), default=0.00)
-    created_at = Column(DateTime, default=datetime.utcnow)
+@dataclass
+class User:
+    full_name: str
+    username: str
+    email: str
+    password_hash: str
+    rating: Decimal = Decimal("0.00")
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    id: Optional[int] = None
+    _id: Optional[Any] = None  # MongoDB ObjectId
 
-    # Relationships
-    items = relationship("Item", back_populates="owner")
-    sales = relationship("Transaction", foreign_keys="Transaction.seller_id", back_populates="seller")
-    purchases = relationship("Transaction", foreign_keys="Transaction.buyer_id", back_populates="buyer")
+    def to_dict(self) -> dict:
+        """Convert to MongoDB document format."""
+        data = {
+            "full_name": self.full_name,
+            "username": self.username,
+            "email": self.email,
+            "password_hash": self.password_hash,
+            "rating": float(self.rating),
+            "created_at": self.created_at,
+        }
+        if self.id is not None:
+            data["id"] = self.id
+        return data
 
-
-class Item(Base):
-    __tablename__ = "items"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(255), nullable=False)
-    description = Column(Text)
-    price = Column(DECIMAL(10, 2), nullable=False)
-    status = Column(Enum(ItemStatus), default=ItemStatus.AVAILABLE)
-    owner_id = Column(Integer, ForeignKey("users.id"))
-
-    # Relationships
-    owner = relationship("User", back_populates="items")
-    transaction = relationship("Transaction", back_populates="item", uselist=False)
-
-
-class Transaction(Base):
-    __tablename__ = "transactions"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    seller_id = Column(Integer, ForeignKey("users.id"))
-    buyer_id = Column(Integer, ForeignKey("users.id"))
-    item_id = Column(Integer, ForeignKey("items.id"))
-    transaction_price = Column(DECIMAL(10, 2))
-    transaction_date = Column(DateTime, default=datetime.utcnow)
-
-    # Relationships
-    seller = relationship("User", foreign_keys=[seller_id], back_populates="sales")
-    buyer = relationship("User", foreign_keys=[buyer_id], back_populates="purchases")
-    item = relationship("Item", back_populates="transaction")
-    rating = relationship("Rating", back_populates="transaction", uselist=False)
+    @classmethod
+    def from_dict(cls, data: dict) -> "User":
+        """Create User from MongoDB document."""
+        return cls(
+            id=data.get("id"),
+            _id=data.get("_id"),
+            full_name=data.get("full_name", ""),
+            username=data.get("username", ""),
+            email=data.get("email", ""),
+            password_hash=data.get("password_hash", ""),
+            rating=Decimal(str(data.get("rating", 0.0))),
+            created_at=data.get("created_at", datetime.utcnow()),
+        )
 
 
-class Rating(Base):
-    __tablename__ = "ratings"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    transaction_id = Column(Integer, ForeignKey("transactions.id"), unique=True)
-    rater_id = Column(Integer, ForeignKey("users.id"))
-    rated_id = Column(Integer, ForeignKey("users.id"))
-    score = Column(Integer, nullable=False)  # e.g., 1-5
+@dataclass
+class Item:
+    name: str
+    price: Decimal
+    owner_id: int
+    description: Optional[str] = None
+    status: ItemStatus = ItemStatus.AVAILABLE
+    id: Optional[int] = None
+    _id: Optional[Any] = None
 
-    # Relationships
-    transaction = relationship("Transaction", back_populates="rating")
-    rater = relationship("User", foreign_keys=[rater_id])
-    rated = relationship("User", foreign_keys=[rated_id])
+    def to_dict(self) -> dict:
+        """Convert to MongoDB document format."""
+        data = {
+            "name": self.name,
+            "description": self.description,
+            "price": float(self.price),
+            "status": self.status.value,
+            "owner_id": self.owner_id,
+        }
+        if self.id is not None:
+            data["id"] = self.id
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Item":
+        """Create Item from MongoDB document."""
+        status_val = data.get("status", "Available")
+        if isinstance(status_val, str):
+            status = ItemStatus(status_val)
+        else:
+            status = status_val
+        return cls(
+            id=data.get("id"),
+            _id=data.get("_id"),
+            name=data.get("name", ""),
+            description=data.get("description"),
+            price=Decimal(str(data.get("price", 0.0))),
+            status=status,
+            owner_id=data.get("owner_id"),
+        )
+
+
+@dataclass
+class Transaction:
+    seller_id: int
+    buyer_id: int
+    item_id: int
+    transaction_price: Decimal
+    transaction_date: datetime = field(default_factory=datetime.utcnow)
+    id: Optional[int] = None
+    _id: Optional[Any] = None
+
+    def to_dict(self) -> dict:
+        """Convert to MongoDB document format."""
+        data = {
+            "seller_id": self.seller_id,
+            "buyer_id": self.buyer_id,
+            "item_id": self.item_id,
+            "transaction_price": float(self.transaction_price),
+            "transaction_date": self.transaction_date,
+        }
+        if self.id is not None:
+            data["id"] = self.id
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Transaction":
+        """Create Transaction from MongoDB document."""
+        return cls(
+            id=data.get("id"),
+            _id=data.get("_id"),
+            seller_id=data.get("seller_id"),
+            buyer_id=data.get("buyer_id"),
+            item_id=data.get("item_id"),
+            transaction_price=Decimal(str(data.get("transaction_price", 0.0))),
+            transaction_date=data.get("transaction_date", datetime.utcnow()),
+        )
+
+
+@dataclass
+class Rating:
+    transaction_id: int
+    rater_id: int
+    rated_id: int
+    score: int
+    id: Optional[int] = None
+    _id: Optional[Any] = None
+
+    def to_dict(self) -> dict:
+        """Convert to MongoDB document format."""
+        data = {
+            "transaction_id": self.transaction_id,
+            "rater_id": self.rater_id,
+            "rated_id": self.rated_id,
+            "score": self.score,
+        }
+        if self.id is not None:
+            data["id"] = self.id
+        return data
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Rating":
+        """Create Rating from MongoDB document."""
+        return cls(
+            id=data.get("id"),
+            _id=data.get("_id"),
+            transaction_id=data.get("transaction_id"),
+            rater_id=data.get("rater_id"),
+            rated_id=data.get("rated_id"),
+            score=data.get("score", 0),
+        )

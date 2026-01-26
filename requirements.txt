@@ -5,6 +5,7 @@ python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
 pymysql
+pymongo
 
 tensorflow
 scikit-learn
